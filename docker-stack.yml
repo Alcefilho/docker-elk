@@ -1,4 +1,4 @@
-version: '3.3'
+version: '3.8'
 
 services:
 
@@ -11,8 +11,8 @@ services:
       - source: elastic_config
         target: /usr/share/elasticsearch/config/elasticsearch.yml
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-      ELASTIC_PASSWORD: changeme
+      ES_JAVA_OPTS: "-Xmx2g"
+      ELASTIC_PASSWORD: elastic
       # Use single node discovery in order to disable production mode and avoid bootstrap checks.
       # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
@@ -23,12 +23,12 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+     
 
   logstash:
     image: docker.elastic.co/logstash/logstash:7.10.0
     ports:
       - "5044:5044"
-      - "5000:5000"
       - "9600:9600"
     configs:
       - source: logstash_config
@@ -36,12 +36,13 @@ services:
       - source: logstash_pipeline
         target: /usr/share/logstash/pipeline/logstash.conf
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      LS_JAVA_OPTS: "-Xmx2g"
     networks:
       - elk
     deploy:
       mode: replicated
       replicas: 1
+     
 
   kibana:
     image: docker.elastic.co/kibana/kibana:7.10.0
@@ -55,7 +56,7 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-
+    
 configs:
 
   elastic_config:
@@ -70,3 +71,4 @@ configs:
 networks:
   elk:
     driver: overlay
+  

@@ -4,10 +4,13 @@
 #
 cluster.name: "docker-cluster"
 network.host: 0.0.0.0
+index.codec: best_compression
+#http_compression : true
+#transport.compress: true
 
 ## X-Pack settings
 ## see https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-xpack.html
 #
 xpack.license.self_generated.type: trial
-xpack.security.enabled: true
+xpack.security.enabled: false
 xpack.monitoring.collection.enabled: true
