@@ -1,0 +1,120 @@
+input {
+  beats {
+	port => 5044
+	tags => ["syslog_udp_compacted"] 
+	type => sonicwall
+	}
+}
+
+
+
+filter {
+
+    grok {
+        match => [ "message", "^%{SYSLOG5424PRI}%{SPACE}%{GREEDYDATA:message2}" ]
+    }
+
+    mutate {
+        rename => { "message2" => "message" }
+        remove_field => [ "message2" ]
+    }
+
+    # Remove fields from the kv filter that you do not want to index
+    kv {
+        exclude_keys => [ "c", "m", "n", "pri","type" ]
+    }
+
+    # src & dst usually come as <IP>:<PORT>:<INTERFACE>.  This separates them.
+    if ("tcp" in [proto]){
+        if (":" in [src]){
+            grok {
+                match => [ "src", "^%{IP:srcip}:%{INT:srcport}:%{GREEDYDATA:srcint}" ]
+                remove_field => ["src"]
+            }
+          }
+        if (":" in [dst]) {
+            grok {
+                match => [ "dst", "^%{IP:dstip}:%{INT:dstport}:%{GREEDYDATA:dstint}" ]
+                remove_field => [ "dst"]
+            }
+        }
+    } else if ("udp" in [proto]){
+        if (":" in [src]){
+            grok {
+                match => [ "src", "^%{IP:srcip}:%{INT:srcport}" ]
+                remove_field => ["src"]
+            }
+          }
+        if (":" in [dst]) {
+            grok {
+                match => [ "dst", "^%{IP:dstip}:%{INT:dstport}" ]
+                remove_field => [ "dst"]
+            }
+        }
+    } else if "ospfigp" in [proto] {
+        if (":" in [src]) {
+            grok {
+                match => [ "src", "^%{IP:srcip}:%{INT:srcport}:%{GREEDYDATA:srcint}" ]
+                remove_field => ["src"]
+            }
+          }
+        if (":" in [dst]) {
+            grok {
+                match => [ "dst", "^%{IP:dstip}:%{INT:dstport}" ]
+                remove_field => [ "dst"]
+            }
+        }
+    } else if [proto] == "icmp" {
+        if (":" in [src]){
+            grok {
+                match => [ "src", "^%{IP:srcip}::%{GREEDYDATA:srcint}" ]
+                remove_field => ["src"]
+            }
+          }
+        if (":" in [dst]) {
+            grok {
+                match => [ "dst", "^%{IP:dstip}" ]
+                remove_field => [ "dst"]
+            }
+        }
+    } else if [msg] == "Received notify. NO_PROPOSAL_CHOSEN" {
+        if (":" in [src]){
+            grok {
+                match => [ "src", "^%{IP:srcip}:%{INT:srcport}" ]
+                remove_field => ["src"]
+            }
+          }
+        if (":" in [dst]) {
+            grok {
+                match => [ "dst", "^%{IP:dstip}:%{INT:dstport}" ]
+                remove_field => [ "dst"]
+            }
+        }
+    } else if [proto] == "0" {
+        mutate {
+            add_field => { "srcip" => "0.0.0.0" }
+            add_tag => [ "private" ]
+        }
+    } 
+
+    #  Do not geoip private IPs
+    
+    geoip {
+        source => "srcip"
+        }
+    
+}
+
+
+
+
+output {
+	elasticsearch {
+		hosts => ["elasticsearch:9200"]
+		user => "elastic"
+		password => "elastic"
+		index => "compacted-sonicwall-%{+YYYY.MM.dd}"
+		
+	}
+	stdout { codec => rubydebug }
+}
